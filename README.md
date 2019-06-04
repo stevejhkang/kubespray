@@ -233,6 +233,7 @@ export KUBECONFIG=$HOME/admin.conf
 echo "export KUBECONFIG=$HOME/admin.conf" > $HOME/.bashrc
 ```
 #### 자동완성과 kubectl 대신 약어(k) 사용하는 방법
+https://kubernetes.io/docs/tasks/tools/install-kubectl/
 <https://kubernetes.io/ko/docs/reference/kubectl/cheatsheet/>
 
 #### Defendencies
