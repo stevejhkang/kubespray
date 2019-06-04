@@ -2,8 +2,8 @@
 
 
 # kubespray
+이 레포지토리는 kubespray를 이용하여 kubernetes를 쉽게 설치하기 위한 레포지토리이다. 여기서 사용한 노드는 Cpu: 2core, Ram: 4GB의 5개의 노드로 구성되어 있으며 3~4개의 노드에서도 잘 동작한다. 이 설치는 다음 레포지토리([kubernetes-tutorial](https://github.com/stevejhkang/kubernetes-tutorial))와 밀집하게 연관이 되어 있다.
 
-## 쿠버네티스 설치
 ### Requirement 설치
 #### Docker 설치  
 ```bash
