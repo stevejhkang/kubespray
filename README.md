@@ -1,206 +1,244 @@
 ![Kubernetes Logo](https://raw.githubusercontent.com/kubernetes-sigs/kubespray/master/docs/img/kubernetes-logo.png)
 
-Deploy a Production Ready Kubernetes Cluster
-============================================
 
-If you have questions, join us on the [kubernetes slack](https://kubernetes.slack.com), channel **\#kubespray**.
-You can get your invite [here](http://slack.k8s.io/)
+# kubespray
 
--   Can be deployed on **AWS, GCE, Azure, OpenStack, vSphere, Oracle Cloud Infrastructure (Experimental), or Baremetal**
--   **Highly available** cluster
--   **Composable** (Choice of the network plugin for instance)
--   Supports most popular **Linux distributions**
--   **Continuous integration tests**
+## 쿠버네티스 설치
+### Requirement 설치
+#### Docker 설치  
+```bash
+# 1. 레포지토리 등록을 위한 패키지 설치
+sudo yum install -y yum-utils \
+  device-mapper-persistent-data \
+  lvm2
+  
+# 2. 도커 레포지토리 등록
+sudo yum-config-manager \
+    --add-repo \
+    https://download.docker.com/linux/centos/docker-ce.repo
 
-Quick Start
------------
+# 3. docker-ce(community edition) 설치: 현재 도커는 패키지를 그냥 docker가 아니라 docker-ce, docker-ee로 나눠서 배포하고 있다.
+sudo yum install -y docker-ce
 
-To deploy the cluster you can use :
-
-### Ansible
-
-#### Ansible version
-
-Ansible v2.7.0 is failing and/or produce unexpected results due to [ansible/ansible/issues/46600](https://github.com/ansible/ansible/issues/46600)
-
-#### Usage
-
-    # Install dependencies from ``requirements.txt``
-    sudo pip install -r requirements.txt
-
-    # Copy ``inventory/sample`` as ``inventory/mycluster``
-    cp -rfp inventory/sample inventory/mycluster
-
-    # Update Ansible inventory file with inventory builder
-    declare -a IPS=(10.10.1.3 10.10.1.4 10.10.1.5)
-    CONFIG_FILE=inventory/mycluster/hosts.ini python3 contrib/inventory_builder/inventory.py ${IPS[@]}
-
-    # Review and change parameters under ``inventory/mycluster/group_vars``
-    cat inventory/mycluster/group_vars/all/all.yml
-    cat inventory/mycluster/group_vars/k8s-cluster/k8s-cluster.yml
-
-    # Deploy Kubespray with Ansible Playbook - run the playbook as root
-    # The option `-b` is required, as for example writing SSL keys in /etc/,
-    # installing packages and interacting with various systemd daemons.
-    # Without -b the playbook will fail to run!
-    ansible-playbook -i inventory/mycluster/hosts.ini --become --become-user=root cluster.yml
-
-Note: When Ansible is already installed via system packages on the control machine, other python packages installed via `sudo pip install -r requirements.txt` will go to a different directory tree (e.g. `/usr/local/lib/python2.7/dist-packages` on Ubuntu) from Ansible's (e.g. `/usr/lib/python2.7/dist-packages/ansible` still on Ubuntu).
-As a consequence, `ansible-playbook` command will fail with:
+# 4. 권한 등록
+sudo usermod -aG docker {userId}
+sudo /usr/sbin/usermod -aG docker {userId}
 ```
-ERROR! no action detected in task. This often indicates a misspelled module name, or incorrect module path.
+#### git과  파이썬3.6 설치
+```bash
+sudo yum update
+sudo yum install -y git
+
+sudo yum install -y https://centos7.iuscommunity.org/ius-release.rpm
+sudo yum install -y python36u python36u-pip python36u-devel
 ```
-probably pointing on a task depending on a module present in requirements.txt (i.e. "unseal vault").
 
-One way of solving this would be to uninstall the Ansible package and then, to install it via pip but it is not always possible.
-A workaround consists of setting `ANSIBLE_LIBRARY` and `ANSIBLE_MODULE_UTILS` environment variables respectively to the `ansible/modules` and `ansible/module_utils` subdirectories of pip packages installation location, which can be found in the Location field of the output of `pip show [package]` before executing `ansible-playbook`.
+### kubespray로 kubernetes 설치
+#### kubespary를 이용하기 위해 설치하는 호스트에서 다른 호스트로  ssh접속 가능하게 하기
+```bash
+# 파이썬 디펜던시 설치
+cd kube-spray
+sudo pip install -r requirements.txt 
 
-### Vagrant
+# 1. 쿠버네티스를 설치할 서버의 IP들을 선언해주고 노드에 접속할 수 있는 private키를 환경변수로 지정(설치 후 삭제 필요)
+declare -a IPS=(192.168.0.125 192.168.0.126 192.168.0.127 192.168.0.128 192.168.0.129)
+PEM_KEY=/private키를/경로로/지정해/주세요.pem
+echo $PEM_KEY
 
-For Vagrant we need to install python dependencies for provisioning tasks.
-Check if Python and pip are installed:
+# 2. kubespary 설치 과정 중 다른 호스트에 접속하기 위한 키 생성
+ssh-keygen -t rsa -b 4096
+SSH_PUBKEY=/home/centos/.ssh/id_rsa.pub
 
-    python -V && pip -V
+# 3. 각 호스트에 ssh접속을 위한 public키를 복사하고, kubernetes 설치를 위해 swap기능을 끈다.
+for i in ${IPS[@]}
+do
+  ssh-keyscan -H $i >> /home/centos/.ssh/known_hosts
+  scp -i $PEM_KEY $SSH_PUBKEY  $i:/home/centos/
+  ssh -i $PEM_KEY $i  "cat /home/centos/id_rsa.pub >> /home/centos/.ssh/authorized_keys"
+  ssh $i "sudo swapoff -a"
+done
+```
 
-If this returns the version of the software, you're good to go. If not, download and install Python from here <https://www.python.org/downloads/source/>
-Install the necessary requirements
+#### 파일복사 및 설정파일 자동 설정 명령
+```bash
+cp -r inventory/sample inventory/mycluster
+CONFIG_FILE=inventory/mycluster/hosts.ini python3.6 contrib/inventory_builder/inventory.py ${IPS[@]}
+```
 
-    sudo pip install -r requirements.txt
-    vagrant up
+#### kubespray/inventory/mycluster/hosts.ini에서 설정 조정
+마스터 두개로 하고 싶으면 [kube-master]안에 노드 추가
+마스터와 노드를 동시에 할당하고 싶으면 [kube-node]와 [kube-master]에 둘다 추가
 
-Documents
----------
 
--   [Requirements](#requirements)
--   [Kubespray vs ...](docs/comparisons.md)
--   [Getting started](docs/getting-started.md)
--   [Ansible inventory and tags](docs/ansible.md)
--   [Integration with existing ansible repo](docs/integration.md)
--   [Deployment data variables](docs/vars.md)
--   [DNS stack](docs/dns-stack.md)
--   [HA mode](docs/ha-mode.md)
--   [Network plugins](#network-plugins)
--   [Vagrant install](docs/vagrant.md)
--   [CoreOS bootstrap](docs/coreos.md)
--   [Debian Jessie setup](docs/debian.md)
--   [openSUSE setup](docs/opensuse.md)
--   [Downloaded artifacts](docs/downloads.md)
--   [Cloud providers](docs/cloud.md)
--   [OpenStack](docs/openstack.md)
--   [AWS](docs/aws.md)
--   [Azure](docs/azure.md)
--   [vSphere](docs/vsphere.md)
--   [Large deployments](docs/large-deployments.md)
--   [Upgrades basics](docs/upgrades.md)
--   [Roadmap](docs/roadmap.md)
+```ini
+[all]
+node1    ansible_host=192.168.0.125 ip=192.168.0.125
+node2    ansible_host=192.168.0.126 ip=192.168.0.126
+node3    ansible_host=192.168.0.127 ip=192.168.0.127
+node4    ansible_host=192.168.0.128 ip=192.168.0.128
+node5    ansible_host=192.168.0.129 ip=192.168.0.129
 
-Supported Linux Distributions
------------------------------
+[kube-master]
+node1
+node2
 
--   **Container Linux by CoreOS**
--   **Debian** Buster, Jessie, Stretch, Wheezy
--   **Ubuntu** 16.04, 18.04
--   **CentOS/RHEL** 7
--   **Fedora** 28
--   **Fedora/CentOS** Atomic
--   **openSUSE** Leap 42.3/Tumbleweed
+[etcd]
+node1
+node2
+node3
 
-Note: Upstart/SysV init based OS types are not supported.
+[kube-node]
+node1
+node2
+node3
+node4
+node5
 
-Supported Components
---------------------
+[k8s-cluster:children]
+kube-master
+kube-node
 
--   Core
-    -   [kubernetes](https://github.com/kubernetes/kubernetes) v1.13.3
-    -   [etcd](https://github.com/coreos/etcd) v3.2.24
-    -   [docker](https://www.docker.com/) v18.06 (see note)
-    -   [rkt](https://github.com/rkt/rkt) v1.21.0 (see Note 2)
-    -   [cri-o](http://cri-o.io/) v1.11.5 (experimental: see [CRI-O Note](docs/cri-o.md). Only on centos based OS)
--   Network Plugin
-    -   [calico](https://github.com/projectcalico/calico) v3.4.0
-    -   [canal](https://github.com/projectcalico/canal) (given calico/flannel versions)
-    -   [cilium](https://github.com/cilium/cilium) v1.3.0
-    -   [contiv](https://github.com/contiv/install) v1.2.1
-    -   [flanneld](https://github.com/coreos/flannel) v0.11.0
-    -   [kube-router](https://github.com/cloudnativelabs/kube-router) v0.2.1
-    -   [multus](https://github.com/intel/multus-cni) v3.1.autoconf
-    -   [weave](https://github.com/weaveworks/weave) v2.5.0
--   Application
-    -   [cephfs-provisioner](https://github.com/kubernetes-incubator/external-storage) v2.1.0-k8s1.11
-    -   [cert-manager](https://github.com/jetstack/cert-manager) v0.5.2
-    -   [coredns](https://github.com/coredns/coredns) v1.2.6
-    -   [ingress-nginx](https://github.com/kubernetes/ingress-nginx) v0.21.0
+[calico-rr]
+```
 
-Note: The list of validated [docker versions](https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG-1.13.md) was updated to 1.11.1, 1.12.1, 1.13.1, 17.03, 17.06, 17.09, 18.06. kubeadm now properly recognizes Docker 18.09.0 and newer, but still treats 18.06 as the default supported version. The kubelet might break on docker's non-standard version numbering (it no longer uses semantic versioning). To ensure auto-updates don't break your cluster look into e.g. yum versionlock plugin or apt pin).
+#### inventory/mycluster/k8s-cluster/k8s-cluster.yml에서 network plugin 수정
+kube_network_plugin: callico -> weave로 변경
 
-Note 2: rkt support as docker alternative is limited to control plane (etcd and
-kubelet). Docker is still used for Kubernetes cluster workloads and network
-plugins' related OS services. Also note, only one of the supported network
-plugins can be deployed for a given single cluster.
+```yaml
+# Directory where credentials will be stored
+credentials_dir: "{{ inventory_dir }}/credentials"
 
-Requirements
-------------
+# Users to create for basic auth in Kubernetes API via HTTP
+# Optionally add groups for user
+kube_api_pwd: "{{ lookup('password', credentials_dir + '/kube_user.creds length=15 chars=ascii_letters,digits') }}"
+kube_users:
+  kube:
+    pass: "{{kube_api_pwd}}"
+    role: admin
+    groups:
+      - system:masters
 
--   **Ansible v2.6 (or newer) and python-netaddr is installed on the machine
-    that will run Ansible commands**
--   **Jinja 2.9 (or newer) is required to run the Ansible Playbooks**
--   The target servers must have **access to the Internet** in order to pull docker images. Otherwise, additional configuration is required (See [Offline Environment](https://github.com/kubernetes-sigs/kubespray/blob/master/docs/downloads.md#offline-environment))
--   The target servers are configured to allow **IPv4 forwarding**.
--   **Your ssh key must be copied** to all the servers part of your inventory.
--   The **firewalls are not managed**, you'll need to implement your own rules the way you used to.
-    in order to avoid any issue during deployment you should disable your firewall.
--   If kubespray is ran from non-root user account, correct privilege escalation method
-    should be configured in the target servers. Then the `ansible_become` flag
-    or command parameters `--become or -b` should be specified.
+## It is possible to activate / deactivate selected authentication methods (basic auth, static token auth)
+#kube_oidc_auth: false
+#kube_basic_auth: false
+#kube_token_auth: false
 
-Network Plugins
----------------
 
-You can choose between 6 network plugins. (default: `calico`, except Vagrant uses `flannel`)
+## Variables for OpenID Connect Configuration https://kubernetes.io/docs/admin/authentication/
+## To use OpenID you have to deploy additional an OpenID Provider (e.g Dex, Keycloak, ...)
 
--   [flannel](docs/flannel.md): gre/vxlan (layer 2) networking.
+# kube_oidc_url: https:// ...
+# kube_oidc_client_id: kubernetes
+## Optional settings for OIDC
+# kube_oidc_ca_file: "{{ kube_cert_dir }}/ca.pem"
+# kube_oidc_username_claim: sub
+# kube_oidc_username_prefix: oidc:
+# kube_oidc_groups_claim: groups
+# kube_oidc_groups_prefix: oidc:
 
--   [calico](docs/calico.md): bgp (layer 3) networking.
 
--   [canal](https://github.com/projectcalico/canal): a composition of calico and flannel plugins.
+# Choose network plugin (cilium, calico, contiv, weave or flannel)
+# Can also be set to 'cloud', which lets the cloud provider setup appropriate routing
+kube_network_plugin: weave
 
--   [cilium](http://docs.cilium.io/en/latest/): layer 3/4 networking (as well as layer 7 to protect and secure application protocols), supports dynamic insertion of BPF bytecode into the Linux kernel to implement security services, networking and visibility logic.
+# Setting multi_networking to true will install Multus: https://github.com/intel/multus-cni
+kube_network_plugin_multus: false
 
--   [contiv](docs/contiv.md): supports vlan, vxlan, bgp and Cisco SDN networking. This plugin is able to
-    apply firewall policies, segregate containers in multiple network and bridging pods onto physical networks.
+# Kubernetes internal network for services, unused block of space.
+kube_service_addresses: 10.233.0.0/18
 
--   [weave](docs/weave.md): Weave is a lightweight container overlay network that doesn't require an external K/V database cluster.
-    (Please refer to `weave` [troubleshooting documentation](http://docs.weave.works/weave/latest_release/troubleshooting.html)).
+# internal network. When used, it will assign IP
+# addresses from this range to individual pods.
+```
 
--   [kube-router](docs/kube-router.md): Kube-router is a L3 CNI for Kubernetes networking aiming to provide operational
-    simplicity and high performance: it uses IPVS to provide Kube Services Proxy (if setup to replace kube-proxy),
-    iptables for network policies, and BGP for ods L3 networking (with optionally BGP peering with out-of-cluster BGP peers).
-    It can also optionally advertise routes to Kubernetes cluster Pods CIDRs, ClusterIPs, ExternalIPs and LoadBalancerIPs.
+#### inventory/mycluster/k8s-cluster/addons.yml에서 helm과 metric-server 설정
 
--   [multus](docs/multus.md): Multus is a meta CNI plugin that provides multiple network interface support to pods. For each interface Multus delegates CNI calls to secondary CNI plugins such as Calico, macvlan, etc.
+helm_enabled: false -> true
 
-The choice is defined with the variable `kube_network_plugin`. There is also an
-option to leverage built-in cloud provider networking instead.
-See also [Network checker](docs/netcheck.md).
+metrics_server_enabled: false -> true 시켜주고 주석해제
 
-Community docs and resources
-----------------------------
+```yaml
+# Kubernetes dashboard
+# RBAC required. see docs/getting-started.md for access details.
+dashboard_enabled: true
 
--   [kubernetes.io/docs/getting-started-guides/kubespray/](https://kubernetes.io/docs/getting-started-guides/kubespray/)
--   [kubespray, monitoring and logging](https://github.com/gregbkr/kubernetes-kargo-logging-monitoring) by @gregbkr
--   [Deploy Kubernetes w/ Ansible & Terraform](https://rsmitty.github.io/Terraform-Ansible-Kubernetes/) by @rsmitty
--   [Deploy a Kubernetes Cluster with Kubespray (video)](https://www.youtube.com/watch?v=N9q51JgbWu8)
+# Helm deployment
+helm_enabled: true
 
-Tools and projects on top of Kubespray
---------------------------------------
+# Registry deployment
+registry_enabled: false
+# registry_namespace: kube-system
+# registry_storage_class: ""
+# registry_disk_size: "10Gi"
 
--   [Digital Rebar Provision](https://github.com/digitalrebar/provision/blob/master/doc/integrations/ansible.rst)
--   [Terraform Contrib](https://github.com/kubernetes-sigs/kubespray/tree/master/contrib/terraform)
+# Metrics Server deployment
+metrics_server_enabled: true
+metrics_server_kubelet_insecure_tls: true
+metrics_server_metric_resolution: 60s
+metrics_server_kubelet_preferred_address_types: "InternalIP"
 
-CI Tests
---------
+# Local volume provisioner deployment
+local_volume_provisioner_enabled: false
+# local_volume_provisioner_namespace: kube-system
+# local_volume_provisioner_storage_classes:
+#   local-storage:
+#     host_dir: /mnt/disks
+#     mount_dir: /mnt/disks
+#   fast-disks:
+#     host_dir: /mnt/fast-disks
+#     mount_dir: /mnt/fast-disks
+#     block_cleaner_command:
+#       - "/scripts/shred.sh"
+#       - "2"
+#     volume_mode: Filesystem
+#     fs_type: ext4
 
-[![Build graphs](https://gitlab.com/kubespray-ci/kubernetes-incubator__kubespray/badges/master/build.svg)](https://gitlab.com/kubespray-ci/kubernetes-incubator__kubespray/pipelines)
+# CephFS provisioner deployment
+cephfs_provisioner_enabled: false
+# cephfs_provisioner_namespace: "cephfs-provisioner"
+# cephfs_provisioner_cluster: ceph
+# cephfs_provisioner_monitors: "172.24.0.1:6789,172.24.0.2:6789,172.24.0.3:6789"
+# cephfs_provisioner_admin_id: admin
+# cephfs_provisioner_secret: secret
+# cephfs_provisioner_storage_class: cephfs
+# cephfs_provisioner_reclaim_policy: Delete
+# cephfs_provisioner_claim_root: /volumes
+# cephfs_provisioner_deterministic_names: true
+```
 
-CI/end-to-end tests sponsored by Google (GCE)
-See the [test matrix](docs/test_cases.md) for details.
+
+
+#### ansible-playbook을 이용해 kubespray 설치 명령
+
+--become --become-user=root 옵션을 줌으로써 설치하는 동안 root권한 임시 사용
+
+```bash
+ansible-playbook -i inventory/mycluster/hosts.ini --become --become-user=root cluster.yml
+```
+
+#### kube admin에 관한 환경변수 설정
+
+```bash
+kubectl get nodes 
+```
+
+했을시 다음과 같은 에러가 나면 Kubernetes error: “The connection to the server localhost:8080 was refused – did you specify the right host or port ?”
+
+kube admin에 관한 환경변수를 설정해주어야 한다.
+
+```bash
+sudo cp /etc/kubernetes/admin.conf $HOME
+sudo chown $(id -u):$(id -g) $HOME/admin.conf
+export KUBECONFIG=$HOME/admin.conf
+echo "export KUBECONFIG=$HOME/admin.conf" > $HOME/.bashrc
+```
+#### 자동완성과 kubectl 대신 약어(k) 사용하는 방법
+<https://kubernetes.io/ko/docs/reference/kubectl/cheatsheet/>
+
+#### Defendencies
+* os: centos 7.5
+* docker version: 18.09.2
+* go version: 1.10.6
+* kubernetes version: 1.13.3
+* kubespray: 2.8.3
+
