@@ -30,7 +30,7 @@ sudo yum update
 sudo yum install -y git
 
 sudo yum install -y https://centos7.iuscommunity.org/ius-release.rpm
-sudo yum install -y python36u python36u-pip python36u-devel
+sudo yum install -y python python-pip python-devel
 ```
 
 ### kubespray로 kubernetes 설치
