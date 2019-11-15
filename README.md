@@ -13,7 +13,7 @@ sudo yum update
 sudo yum install -y git
 
 sudo yum install -y https://centos7.iuscommunity.org/ius-release.rpm
-sudo yum install -y python3 python-pip python-devel
+sudo yum install -y python3 python3-pip python-devel
 ```
 
 ### kubespray로 kubernetes 설치
@@ -21,7 +21,7 @@ sudo yum install -y python3 python-pip python-devel
 ```bash
 # 파이썬 디펜던시 설치
 cd kubespray
-sudo pip install -r requirements.txt 
+sudo pip3 install -r requirements.txt 
 
 # 1. 쿠버네티스를 설치할 서버의 IP들을 선언해주고 노드에 접속할 수 있는 private키를 환경변수로 지정(설치 후 삭제 필요)
 declare -a IPS=(192.168.0.125 192.168.0.126 192.168.0.127 192.168.0.128 192.168.0.129)
