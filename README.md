@@ -45,7 +45,7 @@ done
 #### 파일복사 및 설정파일 자동 설정 명령
 ```bash
 cp -r inventory/sample inventory/mycluster
-CONFIG_FILE=inventory/mycluster/hosts.ini python3.6 contrib/inventory_builder/inventory.py ${IPS[@]}
+CONFIG_FILE=inventory/mycluster/hosts.ini python3 contrib/inventory_builder/inventory.py ${IPS[@]}
 ```
 
 #### kubespray/inventory/mycluster/hosts.ini에서 설정 조정
