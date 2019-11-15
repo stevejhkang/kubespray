@@ -20,7 +20,7 @@ sudo yum install -y python3 python-pip python-devel
 #### kubespary를 이용하기 위해 설치하는 호스트에서 다른 호스트로  ssh접속 가능하게 하기
 ```bash
 # 파이썬 디펜던시 설치
-cd kube-spray
+cd kubespray
 sudo pip install -r requirements.txt 
 
 # 1. 쿠버네티스를 설치할 서버의 IP들을 선언해주고 노드에 접속할 수 있는 private키를 환경변수로 지정(설치 후 삭제 필요)
