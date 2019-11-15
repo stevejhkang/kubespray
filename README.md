@@ -196,7 +196,7 @@ cephfs_provisioner_enabled: false
 --become --become-user=root 옵션을 줌으로써 설치하는 동안 root권한 임시 사용
 
 ```bash
-ansible-playbook -i inventory/mycluster/hosts.ini --become --become-user=root cluster.yml
+ansible-playbook -i inventory/mycluster/hosts.yml --become --become-user=root cluster.yml
 ```
 
 #### kube admin에 관한 환경변수 설정
