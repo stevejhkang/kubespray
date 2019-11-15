@@ -5,24 +5,7 @@
 이 레포지토리는 kubespray를 이용하여 kubernetes를 쉽게 설치하기 위한 레포지토리이다. 여기서 사용한 노드는 Cpu: 2core, Ram: 4GB의 5개의 노드로 구성되어 있으며 3~4개의 노드에서도 잘 동작한다. 이 설치는 다음 레포지토리([kubernetes-tutorial](https://github.com/stevejhkang/kubernetes-tutorial))와 밀집하게 연관이 되어 있다.
 
 ### Requirement 설치
-#### Docker 설치  
-```bash
-# 1. 레포지토리 등록을 위한 패키지 설치
-sudo yum install -y yum-utils \
-  device-mapper-persistent-data \
-  lvm2
-  
-# 2. 도커 레포지토리 등록
-sudo yum-config-manager \
-    --add-repo \
-    https://download.docker.com/linux/centos/docker-ce.repo
 
-# 3. docker-ce(community edition) 설치: 현재 도커는 패키지를 그냥 docker가 아니라 docker-ce, docker-ee로 나눠서 배포하고 있다.
-sudo yum install -y docker-ce
-
-# 4. 권한 등록
-sudo usermod -aG docker {userId}
-sudo /usr/sbin/usermod -aG docker {userId}
 ```
 #### git과  파이썬3.6 설치
 ```bash
@@ -47,14 +30,14 @@ echo $PEM_KEY
 
 # 2. kubespary 설치 과정 중 다른 호스트에 접속하기 위한 키 생성
 ssh-keygen -t rsa -b 4096
-SSH_PUBKEY=/home/centos/.ssh/id_rsa.pub
+export SSH_PUBKEY=$HOME/.ssh/id_rsa.pub
 
 # 3. 각 호스트에 ssh접속을 위한 public키를 복사하고, kubernetes 설치를 위해 swap기능을 끈다.
 for i in ${IPS[@]}
 do
-  ssh-keyscan -H $i >> /home/centos/.ssh/known_hosts
-  scp -i $PEM_KEY $SSH_PUBKEY  $i:/home/centos/
-  ssh -i $PEM_KEY $i  "cat /home/centos/id_rsa.pub >> /home/centos/.ssh/authorized_keys"
+  ssh-keyscan -H $i >> $HOME/.ssh/known_hosts
+  scp -i $PEM_KEY $SSH_PUBKEY  $i:$HOME
+  ssh -i $PEM_KEY $i  "cat $HOME/id_rsa.pub >> $HOME/.ssh/authorized_keys"
   ssh $i "sudo swapoff -a"
 done
 ```
