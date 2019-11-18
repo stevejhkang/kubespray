@@ -10,36 +10,40 @@
 #### git과  파이썬3.6 설치
 ```bash
 sudo yum update
-sudo yum install -y git
-
 sudo yum install -y https://centos7.iuscommunity.org/ius-release.rpm
-sudo yum install -y python3 python3-pip python-devel
+sudo yum install -y python3 python3-pip python-pip python-devel
 ```
+
 
 ### kubespray로 kubernetes 설치
 #### kubespary를 이용하기 위해 설치하는 호스트에서 다른 호스트로  ssh접속 가능하게 하기
 ```bash
-# 파이썬 디펜던시 설치
-cd kubespray
-sudo pip3 install -r requirements.txt 
-
-# 1. 쿠버네티스를 설치할 서버의 IP들을 선언해주고 노드에 접속할 수 있는 private키를 환경변수로 지정(설치 후 삭제 필요)
-declare -a IPS=(192.168.0.125 192.168.0.126 192.168.0.127 192.168.0.128 192.168.0.129)
-PEM_KEY=/private키를/경로로/지정해/주세요.pem
-echo $PEM_KEY
-
-# 2. kubespary 설치 과정 중 다른 호스트에 접속하기 위한 키 생성
+# 1. kubespary 설치 과정 중 다른 호스트에 접속하기 위한 키 생성
 ssh-keygen -t rsa -b 4096
 export SSH_PUBKEY=$HOME/.ssh/id_rsa.pub
 
-# 3. 각 호스트에 ssh접속을 위한 public키를 복사하고, kubernetes 설치를 위해 swap기능을 끈다.
+# 2. 공개키 각 노드에 복사
+declare -a IPS=(192.168.0.125 192.168.0.126 192.168.0.127 192.168.0.128 192.168.0.129)
+for i in ${IPS[@]} 
+do
+  scp $SSH_PUBKEY root@$i:/root/
+  ssh root@$i "mkdir /root/.ssh"
+  ssh root@$i "cat /root/id_rsa.pub >> /root/.ssh/authorized_keys"
+  ssh root@$i "sudo swapoff -a"
+done
+
+# 3. 각 노드에 python 설치
 for i in ${IPS[@]}
 do
-  ssh-keyscan -H $i >> $HOME/.ssh/known_hosts
-  scp -i $PEM_KEY $SSH_PUBKEY  $i:$HOME
-  ssh -i $PEM_KEY $i  "cat $HOME/id_rsa.pub >> $HOME/.ssh/authorized_keys"
-  ssh $i "sudo swapoff -a"
+  ssh root@$i "yum update -y"
+  ssh root@$i "yum install python3 -y"
 done
+
+
+# 4. 필요한 라이브러리 설치
+cd ~/kubespray
+sudo pip3 install -r requirements.txt 
+sudo pip install -r requirements.txt
 ```
 
 #### 파일복사 및 설정파일 자동 설정 명령
@@ -196,6 +200,7 @@ cephfs_provisioner_enabled: false
 --become --become-user=root 옵션을 줌으로써 설치하는 동안 root권한 임시 사용
 
 ```bash
+export ANSIBLE_INVALID_TASK_ATTRIBUTE_FAILED=False
 ansible-playbook -i inventory/mycluster/hosts.yml --become --become-user=root cluster.yml
 ```
 
